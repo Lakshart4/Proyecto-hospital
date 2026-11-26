@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fondo blanco y texto oscuro con contraste suficiente (Req. 15.2, 15.14). */
+@layer base {
+  body {
+    @apply bg-white text-slate-900 antialiased;
+  }
+}

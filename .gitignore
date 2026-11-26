@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno (los .env.example sí se versionan)
+.env
+.env.*
+!.env.example
+
+# Bases de datos SQLite
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Archivos cargados y documentos de empleados
+backend/storage/documents/
+backend/uploads/
+
+# Compilación y registros
+dist/
+*.log
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

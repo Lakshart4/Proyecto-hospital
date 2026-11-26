@@ -1,0 +1,485 @@
+// Esquema de datos del Sistema de Gestión y Administración Hospitalaria.
+// Base de datos: SQLite. Los campos de conjunto cerrado (rol, estados, tipos) son String;
+// sus valores permitidos están en src/domain/constants.ts y se validan con zod.
+// Todas las fechas se guardan en UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// Grupo 1: Personal y seguridad
+// ============================================================
+
+model Department {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  users            User[]
+  patients         Patient[]
+  patientMovements PatientMovement[]
+  rooms            Room[]
+  equipment        Equipment[]
+}
+
+/// Cuenta de usuario y Perfil del Empleado. El Administrador (Director) es un User con rol ADMIN.
+model User {
+  id                 Int        @id @default(autoincrement())
+  internalId         String     @unique
+  email              String     @unique
+  passwordHash       String
+  role               String
+  mustChangePassword Boolean    @default(false)
+  active             Boolean    @default(true)
+  name               String
+  photoUrl           String?
+  position           String
+  description        String     @default("")
+  specialty          String
+  departmentId       Int
+  department         Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  yearsExperience    Int
+  shift              String
+  phone              String
+  birthDate          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  adminAuthorizations AdminAuthorization[]
+  scheduleSlots       ScheduleSlot[]
+  documents           EmployeeDocument[]
+  auditLogs           AuditLog[]
+
+  doctorPatients             Patient[]           @relation("PatientDoctor")
+  nursePatients              Patient[]           @relation("PatientNurse")
+  medicalObservationsWritten Patient[]           @relation("PatientMedicalObservationBy")
+  nursingObservationsWritten Patient[]           @relation("PatientNursingObservationBy")
+  patientMovements           PatientMovement[]
+  treatmentsCreated          Treatment[]
+  appointmentsAsDoctor       Appointment[]       @relation("AppointmentDoctor")
+  appointmentsCreated        Appointment[]       @relation("AppointmentCreatedBy")
+  inventoryMovements         InventoryMovement[]
+  ownedEvents                Event[]             @relation("EventOwner")
+  createdEvents              Event[]             @relation("EventCreatedBy")
+  nonWorkingDaysCreated      NonWorkingDay[]
+
+  @@index([role])
+  @@index([departmentId])
+  @@index([shift])
+}
+
+/// Horario_de_Trabajo de un día de la semana (0 = domingo ... 6 = sábado).
+model ScheduleSlot {
+  id        Int     @id @default(autoincrement())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  mealStart String?
+  mealEnd   String?
+
+  breaks ScheduleBreak[]
+
+  @@unique([userId, dayOfWeek])
+}
+
+/// Descanso dentro de un ScheduleSlot (máximo 3 por día, validado en el servicio).
+model ScheduleBreak {
+  id        Int          @id @default(autoincrement())
+  slotId    Int
+  slot      ScheduleSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  startTime String
+  endTime   String
+
+  @@index([slotId])
+}
+
+/// Sesión del lado del servidor. Solo se guarda el hash SHA-256 del token de la cookie.
+model Session {
+  id             Int      @id @default(autoincrement())
+  tokenHash      String   @unique
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+
+  adminAuthorization AdminAuthorization?
+
+  @@index([userId])
+}
+
+/// Token_de_Recuperación. Solo se guarda su hash SHA-256.
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt])
+}
+
+/// Autorización_Administrativa de 10 minutos, ligada a una Sesión. Solo se guarda su hash.
+model AdminAuthorization {
+  id        Int       @id @default(autoincrement())
+  sessionId Int       @unique
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Documento_de_Empleado (PDF en storage/documents, fuera de carpetas públicas).
+model EmployeeDocument {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  issuedAt  DateTime
+  expiresAt DateTime?
+  filePath  String
+  fileSize  Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+/// Bitácora_de_Auditoría. userId es nulo si la acción no corresponde a una cuenta identificable.
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   Int?
+  details    String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
+}
+
+// ============================================================
+// Grupo 2: Pacientes y habitaciones
+// ============================================================
+
+model Patient {
+  id                     Int        @id @default(autoincrement())
+  internalId             String     @unique
+  firstName              String
+  lastName               String
+  birthDate              DateTime
+  sex                    String
+  phone                  String?
+  /// Fecha de ingreso más reciente; no posterior a hoy.
+  admissionDate          DateTime
+  reason                 String
+  status                 String     @default("activo")
+  /// Solo si status = "fallecido".
+  deceasedAt             DateTime?
+  departmentId           Int
+  department             Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  doctorId               Int
+  doctor                 User       @relation("PatientDoctor", fields: [doctorId], references: [id], onDelete: Restrict)
+  nurseId                Int
+  nurse                  User       @relation("PatientNurse", fields: [nurseId], references: [id], onDelete: Restrict)
+  medicalObservation     String     @default("")
+  medicalObservationAt   DateTime?
+  medicalObservationById Int?
+  medicalObservationBy   User?      @relation("PatientMedicalObservationBy", fields: [medicalObservationById], references: [id], onDelete: SetNull)
+  nursingObservation     String     @default("")
+  nursingObservationAt   DateTime?
+  nursingObservationById Int?
+  nursingObservationBy   User?      @relation("PatientNursingObservationBy", fields: [nursingObservationById], references: [id], onDelete: SetNull)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  movements    PatientMovement[]
+  treatments   Treatment[]
+  appointments Appointment[]
+  assignments  RoomAssignment[]
+
+  @@index([status])
+  @@index([departmentId])
+  @@index([doctorId])
+  @@index([nurseId])
+  @@index([admissionDate])
+}
+
+/// Registro_de_Movimiento_del_Paciente. Solo inserción.
+model PatientMovement {
+  id           Int        @id @default(autoincrement())
+  patientId    Int
+  patient      Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  type         String
+  occurredAt   DateTime
+  departmentId Int
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  note         String     @default("")
+
+  @@index([patientId, occurredAt])
+}
+
+/// Tratamiento_Programado (tratamiento o cirugía). Máximo 100 por Paciente (servicio).
+model Treatment {
+  id          Int       @id @default(autoincrement())
+  patientId   Int
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  type        String
+  status      String    @default("programado")
+  scheduledAt DateTime
+  performedAt DateTime?
+  description String
+  createdById Int
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([patientId, scheduledAt])
+  @@index([status, scheduledAt])
+}
+
+/// Cita médica entre un Paciente y un Médico. Las cancelaciones conservan el registro.
+model Appointment {
+  id              Int       @id @default(autoincrement())
+  patientId       Int
+  patient         Patient   @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId        Int
+  doctor          User      @relation("AppointmentDoctor", fields: [doctorId], references: [id], onDelete: Restrict)
+  scheduledAt     DateTime
+  durationMinutes Int       @default(30)
+  reason          String
+  notes           String    @default("")
+  status          String    @default("programada")
+  cancelReason    String?
+  canceledAt      DateTime?
+  createdById     Int
+  createdBy       User      @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([doctorId, status, scheduledAt])
+  @@index([patientId, status, scheduledAt])
+  @@index([scheduledAt])
+}
+
+/// Habitación. La disponibilidad se calcula a partir de las Asignaciones activas.
+model Room {
+  id           Int        @id @default(autoincrement())
+  number       Int        @unique
+  departmentId Int
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  capacity     Int
+
+  assignments RoomAssignment[]
+
+  @@index([departmentId])
+}
+
+/// Asignación de un Paciente a una Habitación. Activa mientras endedAt es nulo.
+model RoomAssignment {
+  id            Int       @id @default(autoincrement())
+  roomId        Int
+  room          Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  patientId     Int
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  startedAt     DateTime
+  endedAt       DateTime?
+  /// "alta" o "fallecimiento" al cerrarse; nulo mientras está activa.
+  releaseReason String?
+
+  @@index([patientId, endedAt])
+  @@index([roomId, endedAt])
+}
+
+// ============================================================
+// Grupo 3: Inventario, proveedores, entregas y movimientos
+// ============================================================
+
+model Supplier {
+  id      Int    @id @default(autoincrement())
+  name    String
+  contact String
+
+  products   Product[]
+  deliveries SupplierDelivery[]
+}
+
+/// Producto de inventario. lowStock y availability se calculan; no se guardan.
+model Product {
+  id             Int      @id @default(autoincrement())
+  name           String
+  category       String
+  /// Subcategoría_de_Insumo, tipo de medicamento o texto libre según la categoría.
+  classification String
+  quantity       Int
+  minStock       Int
+  supplierId     Int
+  supplier       Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  medicationInfo MedicationInfo?
+  deliveries     SupplierDelivery[]
+  movements      InventoryMovement[]
+
+  @@index([category])
+  @@index([supplierId])
+}
+
+/// Datos de demostración de un Medicamento. Medicamento_Controlado = controlClass "controlado".
+model MedicationInfo {
+  productId            Int     @id
+  product              Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type                 String
+  activeIngredient     String
+  tradeName            String?
+  controlClass         String
+  requiresPrescription Boolean
+}
+
+/// Entrega_de_Proveedor. El Proveedor debe ser el del Producto (servicio).
+model SupplierDelivery {
+  id                Int       @id @default(autoincrement())
+  supplierId        Int
+  supplier          Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  productId         Int
+  product           Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantityRequested Int
+  scheduledDate     DateTime
+  status            String    @default("programada")
+  receivedDate      DateTime?
+  quantityReceived  Int?
+
+  movement InventoryMovement?
+
+  @@index([status])
+  @@index([scheduledDate])
+  @@index([supplierId])
+  @@index([productId])
+}
+
+/// Movimiento_de_Inventario. Solo inserción.
+model InventoryMovement {
+  id             Int               @id @default(autoincrement())
+  productId      Int
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type           String
+  quantityBefore Int
+  quantityAfter  Int
+  reason         String
+  userId         Int
+  user           User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  /// Entrega que originó el movimiento (como máximo un movimiento por entrega).
+  deliveryId     Int?              @unique
+  delivery       SupplierDelivery? @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  createdAt      DateTime          @default(now())
+
+  @@index([productId, createdAt])
+  @@index([type])
+  @@index([userId])
+}
+
+// ============================================================
+// Grupo 4: Equipos médicos y mantenimiento
+// ============================================================
+
+model Equipment {
+  id                  Int        @id @default(autoincrement())
+  name                String
+  category            String
+  departmentId        Int
+  department          Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  quantity            Int
+  location            String
+  operationalStatus   String
+  maintenanceRequired Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  maintenanceRecords MaintenanceRecord[]
+
+  @@index([departmentId])
+  @@index([category])
+  @@index([operationalStatus])
+}
+
+/// Registro_de_Mantenimiento. En curso mientras endDate es nulo (uno como máximo por Equipo, servicio).
+model MaintenanceRecord {
+  id              Int       @id @default(autoincrement())
+  equipmentId     Int
+  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  type            String
+  startDate       DateTime
+  endDate         DateTime?
+  description     String
+  technician      String
+  /// "disponible" o "fuera de servicio", al cerrar.
+  resultingStatus String?
+
+  @@index([equipmentId, endDate])
+  @@index([startDate])
+}
+
+// ============================================================
+// Grupo 5: Calendarios
+// ============================================================
+
+/// Evento guardado (general, actividad, entrega o agenda individual).
+/// Cumpleaños, feriados, Días_Inhábiles y entregas de proveedor son virtuales.
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  type        String
+  startAt     DateTime
+  endAt       DateTime
+  /// Propietario de la agenda individual; obligatorio si type = "agenda individual" (servicio).
+  ownerId     Int?
+  owner       User?    @relation("EventOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdById Int
+  // NoAction (y no Restrict): en SQLite se comprueba al final de la sentencia, después de la
+  // cascada de ownerId. Así un evento personal se borra con su propietario-creador, y sigue
+  // impidiéndose borrar al creador de un evento que no se elimina en cascada.
+  createdBy   User     @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: NoAction)
+
+  @@index([type, startAt])
+  @@index([ownerId])
+}
+
+/// Día_Inhábil propio del hospital. La fecha se guarda a las 00:00 UTC.
+model NonWorkingDay {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @unique
+  title       String
+  description String   @default("")
+  createdById Int
+  createdBy   User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+}
+
+/// Configuración institucional persistente. El servicio utiliza siempre el registro con id = 1.
+model InstitutionConfig {
+  id        Int      @id @default(1)
+  name      String
+  timeZone  String   @default("America/Mexico_City")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
