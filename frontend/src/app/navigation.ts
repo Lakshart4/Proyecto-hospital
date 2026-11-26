@@ -8,6 +8,7 @@
 import {
   BarChart3,
   BedDouble,
+  Bell,
   CalendarCheck,
   FileText,
   HeartPulse,
@@ -37,6 +38,7 @@ export interface Section {
 /** En el orden del menú. */
 export const SECTIONS: readonly Section[] = [
   { id: 'dashboard', path: '/dashboard', label: MESSAGES.nav.dashboard, icon: LayoutDashboard, resource: 'dashboard', action: 'list' },
+  { id: 'notifications', path: '/alertas', label: MESSAGES.nav.notifications, icon: Bell, resource: 'notifications', action: 'list' },
   { id: 'reports', path: '/reportes', label: MESSAGES.nav.reports, icon: BarChart3, resource: 'reports', action: 'list' },
   { id: 'staff', path: '/personal', label: MESSAGES.nav.staff, icon: Users, resource: 'staff', action: 'list', nested: true },
   { id: 'patients', path: '/pacientes', label: MESSAGES.nav.patients, icon: HeartPulse, resource: 'patients', action: 'list', nested: true },

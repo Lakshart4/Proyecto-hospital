@@ -27,7 +27,7 @@ export function FormField({ id, label, error, hint, required = false, children }
 
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium text-ink">
+      <label htmlFor={id} className="text-sm font-semibold text-ink">
         {label}
         {required && <span aria-hidden="true" className="text-status-danger-fg"> *</span>}
       </label>
@@ -48,4 +48,4 @@ export function FormField({ id, label, error, hint, required = false, children }
 
 /** Clases comunes de los controles de texto. */
 export const INPUT_CLASSES =
-  'w-full rounded-md border border-border bg-page px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary aria-[invalid=true]:border-status-danger-fg';
+  'min-h-11 w-full rounded-lg border border-slate-300 bg-page px-3.5 py-2.5 text-sm text-ink shadow-sm outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-70 aria-[invalid=true]:border-status-danger-fg';

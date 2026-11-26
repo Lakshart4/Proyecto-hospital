@@ -28,10 +28,10 @@ const expectedAllowed = (role: Role, section: Section) =>
 
 /** Menús esperados según el mapa de rutas del diseño, escritos aparte del código. */
 const EXPECTED_MENUS: Record<Role, string[]> = {
-  ADMIN: ['dashboard', 'reports', 'staff', 'patients', 'appointments', 'inventory', 'rooms', 'ownProfile'],
-  DOCTOR: ['patients', 'appointments', 'ownProfile', 'ownDocuments'],
-  NURSE: ['patients', 'ownProfile', 'ownDocuments'],
-  CLEANING: ['ownProfile', 'ownDocuments'],
+  ADMIN: ['dashboard', 'notifications', 'reports', 'staff', 'patients', 'appointments', 'inventory', 'rooms', 'ownProfile'],
+  DOCTOR: ['notifications', 'patients', 'appointments', 'ownProfile', 'ownDocuments'],
+  NURSE: ['notifications', 'patients', 'ownProfile', 'ownDocuments'],
+  CLEANING: ['notifications', 'ownProfile', 'ownDocuments'],
 };
 
 /** Recursos que ningún rol distinto de ADMIN puede abrir (Property 4). */

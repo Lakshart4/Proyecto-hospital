@@ -16,6 +16,8 @@ export const BASE_COLORS = {
   primary: '#1d4ed8',
   /** Encabezados (blue-800). */
   heading: '#1e40af',
+  /** Acento hospitalario turquesa (teal-700). */
+  accent: '#0f766e',
   /** Fondo del elemento activo (blue-50). */
   active: '#eff6ff',
   /** Botón de acción destructiva (red-700). */
@@ -71,6 +73,8 @@ export const TEXT_COLOR_PAIRS: ReadonlyArray<{ name: string; fg: string; bg: str
   { name: 'texto secundario sobre blanco', fg: BASE_COLORS.muted, bg: BASE_COLORS.page },
   { name: 'encabezado sobre blanco', fg: BASE_COLORS.heading, bg: BASE_COLORS.page },
   { name: 'enlace sobre blanco', fg: BASE_COLORS.primary, bg: BASE_COLORS.page },
+  { name: 'acento turquesa sobre blanco', fg: BASE_COLORS.accent, bg: BASE_COLORS.page },
+  { name: 'texto blanco sobre acento turquesa', fg: BASE_COLORS.page, bg: BASE_COLORS.accent },
   { name: 'texto de botón principal', fg: BASE_COLORS.page, bg: BASE_COLORS.primary },
   { name: 'texto de botón de peligro', fg: BASE_COLORS.page, bg: BASE_COLORS.danger },
   { name: 'elemento activo', fg: BASE_COLORS.heading, bg: BASE_COLORS.active },

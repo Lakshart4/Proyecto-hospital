@@ -37,17 +37,17 @@ export function DataTable<T>({ columns, rows, rowKey, caption, pageSize = DEFAUL
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="w-full overflow-x-auto rounded-lg border border-border">
+      <div className="w-full overflow-x-auto rounded-xl border border-border bg-page shadow-sm">
         <table className="min-w-full divide-y divide-border text-left text-sm">
           <caption className="sr-only">{caption}</caption>
-          <thead className="bg-active">
+          <thead className="bg-slate-50">
             <tr>
               {columns.map((column) => {
                 const direction = sort?.key === column.key ? sort.direction : undefined;
                 const ariaSort = direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : column.sortValue ? 'none' : undefined;
                 const Icon = direction === 'asc' ? ArrowUp : direction === 'desc' ? ArrowDown : ArrowUpDown;
                 return (
-                  <th key={column.key} scope="col" aria-sort={ariaSort} className="whitespace-nowrap px-4 py-3 font-semibold text-heading">
+                  <th key={column.key} scope="col" aria-sort={ariaSort} className="whitespace-nowrap px-4 py-3.5 text-xs font-semibold uppercase tracking-wide text-muted">
                     {column.sortValue ? (
                       <button type="button" onClick={() => toggle(column.key)} aria-label={MESSAGES.table.sortBy(column.header)} className="inline-flex items-center gap-1 hover:underline">
                         {column.header}
@@ -70,9 +70,9 @@ export function DataTable<T>({ columns, rows, rowKey, caption, pageSize = DEFAUL
               </tr>
             ) : (
               visible.map((row) => (
-                <tr key={rowKey(row)} className="hover:bg-active">
+                <tr key={rowKey(row)} className="transition-colors hover:bg-active/70">
                   {columns.map((column) => (
-                    <td key={column.key} className="whitespace-nowrap px-4 py-3 text-ink">
+                    <td key={column.key} className="whitespace-nowrap px-4 py-3.5 text-ink">
                       {column.render ? column.render(row) : String(column.sortValue?.(row) ?? '')}
                     </td>
                   ))}
