@@ -6,6 +6,7 @@ import { ResetPasswordPage } from '../modules/auth/ResetPasswordPage';
 import { AppointmentsPage } from '../modules/appointments';
 import { DashboardPage } from '../modules/dashboard';
 import { InventoryPage, ProductDetailPage } from '../modules/inventory';
+import { NotificationsPage } from '../modules/notifications/NotificationsPage';
 import { PatientCreatePage, PatientDetailPage, PatientsListPage } from '../modules/patients';
 import { ReportsPage } from '../modules/reports';
 import { RoomsListPage } from '../modules/rooms';
@@ -27,6 +28,9 @@ function sectionRoutes(section: Section): RouteObject {
   }
   if (section.id === 'reports') {
     return { element: <RoleGuard section={section} />, children: [{ path: '/reportes', element: <ReportsPage /> }] };
+  }
+  if (section.id === 'notifications') {
+    return { element: <RoleGuard section={section} />, children: [{ path: '/alertas', element: <NotificationsPage /> }] };
   }
   if (section.id === 'patients') {
     return {

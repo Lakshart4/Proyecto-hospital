@@ -34,7 +34,7 @@ export function Layout() {
   const accessDenied = readRedirectState(location.state).accessDenied === true && dismissedNotice !== location.key;
 
   return (
-    <div className="flex min-h-screen w-full bg-page text-ink">
+    <div className="flex min-h-screen w-full bg-slate-50 text-ink">
       <a
         href="#contenido"
         className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-page"
@@ -51,7 +51,7 @@ export function Layout() {
           onLogout={logout}
           menuButtonRef={menuButtonRef}
         />
-        <main id="contenido" tabIndex={-1} className="min-w-0 flex-1 break-words p-4 focus:outline-none md:p-6">
+        <main id="contenido" tabIndex={-1} className="mx-auto min-w-0 w-full max-w-[1600px] flex-1 break-words p-4 focus:outline-none sm:p-5 md:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

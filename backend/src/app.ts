@@ -11,6 +11,7 @@ import express, { type Express, type Router } from 'express';
 import { AttemptLimiter } from './middlewares/attemptLimiter';
 import { corsPolicy } from './middlewares/cors';
 import { errorHandler } from './middlewares/errorHandler';
+import { httpSecurity } from './middlewares/httpSecurity';
 import { notFound } from './middlewares/notFound';
 import { createSecurity, type Security } from './middlewares/security';
 import { defaultDatabase, type Database } from './repositories/database';
@@ -81,6 +82,10 @@ export const JSON_BODY_LIMIT = '1mb';
 export function createApp(options: AppOptions): Express {
   const app = express();
   app.disable('x-powered-by');
+  const isProduction = process.env.NODE_ENV === 'production';
+  // Render utiliza un proxy delante de Express. Solo en esa topología se confía en un salto.
+  if (isProduction) app.set('trust proxy', 1);
+  app.use(httpSecurity({ production: isProduction }));
 
   const now = options.now ?? (() => new Date());
   const secureCookies = options.secureCookies ?? false;
@@ -162,7 +167,7 @@ export function createApp(options: AppOptions): Express {
   // En producción, el mismo servidor sirve React y la API. La sección /api nunca cae en el SPA.
   const publicDir = options.publicDir ?? resolve(__dirname, '..', 'public');
   const indexHtml = join(publicDir, 'index.html');
-  const serveFrontend = process.env.NODE_ENV === 'production' || options.publicDir !== undefined;
+  const serveFrontend = isProduction || options.publicDir !== undefined;
   if (serveFrontend && existsSync(indexHtml)) {
     app.use(express.static(publicDir));
     app.use((req, _res, next) => {

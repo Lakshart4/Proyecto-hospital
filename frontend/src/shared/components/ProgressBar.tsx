@@ -17,7 +17,7 @@ export function ProgressBar({ label, value }: ProgressBarProps) {
         <span className="font-medium">{text}</span>
       </div>
       <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-valuetext={text} className="h-2.5 w-full overflow-hidden rounded-full bg-status-neutral-bg">
-        <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${percent}%` }} />
+        <div className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-[width] duration-200" style={{ width: `${percent}%` }} />
       </div>
     </div>
   );

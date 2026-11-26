@@ -4,14 +4,16 @@ import type { Database } from '../repositories/database';
 
 export interface Actor { id: number; role: Role }
 export type NotificationSeverity = 'info' | 'warning' | 'critical';
+export type NotificationKind = 'stock' | 'treatment' | 'equipment' | 'delivery' | 'appointment' | 'room';
 export interface NotificationItem {
   id: string;
-  kind: 'stock' | 'treatment' | 'equipment' | 'delivery';
+  kind: NotificationKind;
   severity: NotificationSeverity;
   title: string;
   message: string;
   date: Date;
-  href: string;
+  /** Solo se incluye cuando el módulo de destino existe en el Frontend. */
+  href?: string;
 }
 
 export interface NotificationsService {
@@ -43,7 +45,7 @@ export function createNotificationsService(db: Database, now: () => Date = () =>
             title: product.quantity === 0 ? 'Producto agotado' : 'Stock bajo',
             message: `${product.name}: ${product.quantity} unidades disponibles (mínimo ${product.minStock}).`,
             date: product.updatedAt,
-            href: product.category === 'material de limpieza' ? '/inventario-limpieza' : '/inventario',
+            ...(product.category === 'material de limpieza' ? {} : { href: '/inventario' }),
           });
         }
       }
@@ -73,11 +75,41 @@ export function createNotificationsService(db: Database, now: () => Date = () =>
         }
       }
 
+      // Citas: el ADMIN ve todas y el DOCTOR solo las suyas. NURSE y CLEANING no tienen acceso al módulo.
+      if (actor.role === 'ADMIN' || actor.role === 'DOCTOR') {
+        const appointments = await db.appointment.findMany({
+          where: {
+            status: 'programada',
+            scheduledAt: { gte: current, lte: until },
+            ...(actor.role === 'DOCTOR' ? { doctorId: actor.id } : {}),
+          },
+          include: { patient: { select: { firstName: true, lastName: true, internalId: true } } },
+          orderBy: { scheduledAt: 'asc' },
+          take: 20,
+        });
+        for (const appointment of appointments) {
+          notifications.push({
+            id: `appointment-${appointment.id}`,
+            kind: 'appointment',
+            severity: 'info',
+            title: 'Cita próxima',
+            message: `${appointment.patient.firstName} ${appointment.patient.lastName} (${appointment.patient.internalId}): ${appointment.reason}`,
+            date: appointment.scheduledAt,
+            href: '/citas',
+          });
+        }
+      }
+
       if (actor.role === 'ADMIN') {
-        const [equipment, deliveries] = await Promise.all([
+        const [equipment, deliveries, departments] = await Promise.all([
           db.equipment.findMany({
-            where: { operationalStatus: { in: ['en mantenimiento', 'fuera de servicio'] } },
-            select: { id: true, name: true, operationalStatus: true, updatedAt: true },
+            where: {
+              OR: [
+                { operationalStatus: { in: ['en mantenimiento', 'fuera de servicio'] } },
+                { maintenanceRequired: true },
+              ],
+            },
+            select: { id: true, name: true, operationalStatus: true, maintenanceRequired: true, updatedAt: true },
             take: 20,
           }),
           db.supplierDelivery.findMany({
@@ -86,16 +118,34 @@ export function createNotificationsService(db: Database, now: () => Date = () =>
             orderBy: { scheduledDate: 'asc' },
             take: 20,
           }),
+          db.department.findMany({
+            select: {
+              id: true,
+              name: true,
+              rooms: {
+                select: {
+                  capacity: true,
+                  assignments: { where: { endedAt: null }, select: { id: true } },
+                },
+              },
+            },
+            orderBy: { name: 'asc' },
+          }),
         ]);
         for (const item of equipment) {
+          const outOfService = item.operationalStatus === 'fuera de servicio';
+          const inMaintenance = item.operationalStatus === 'en mantenimiento';
           notifications.push({
             id: `equipment-${item.id}`,
             kind: 'equipment',
-            severity: item.operationalStatus === 'fuera de servicio' ? 'critical' : 'warning',
-            title: item.operationalStatus === 'fuera de servicio' ? 'Equipo fuera de servicio' : 'Equipo en mantenimiento',
+            severity: outOfService ? 'critical' : 'warning',
+            title: outOfService
+              ? 'Equipo fuera de servicio'
+              : inMaintenance
+                ? 'Equipo en mantenimiento'
+                : 'Mantenimiento requerido',
             message: item.name,
             date: item.updatedAt,
-            href: '/equipos',
           });
         }
         for (const delivery of deliveries) {
@@ -106,7 +156,21 @@ export function createNotificationsService(db: Database, now: () => Date = () =>
             title: 'Entrega próxima',
             message: `${delivery.product.name}: ${delivery.quantityRequested} unidades solicitadas.`,
             date: delivery.scheduledDate,
-            href: '/proveedores',
+          });
+        }
+        for (const department of departments) {
+          const capacity = department.rooms.reduce((total, room) => total + room.capacity, 0);
+          const occupied = department.rooms.reduce((total, room) => total + room.assignments.length, 0);
+          const available = capacity - occupied;
+          if (capacity === 0 || available > 0) continue;
+          notifications.push({
+            id: `room-${department.id}`,
+            kind: 'room',
+            severity: 'critical',
+            title: 'Departamento sin disponibilidad',
+            message: `${department.name}: ${occupied} de ${capacity} camas ocupadas.`,
+            date: current,
+            href: '/habitaciones',
           });
         }
       }

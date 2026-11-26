@@ -1,13 +1,17 @@
 import { apiClient } from '../../shared/lib/apiClient';
 
+export type NotificationKind = 'stock' | 'treatment' | 'equipment' | 'delivery' | 'appointment' | 'room';
+export type NotificationSeverity = 'info' | 'warning' | 'critical';
+
 export interface HospitalNotification {
   id: string;
-  kind: 'stock' | 'treatment' | 'equipment' | 'delivery';
-  severity: 'info' | 'warning' | 'critical';
+  kind: NotificationKind;
+  severity: NotificationSeverity;
   title: string;
   message: string;
   date: string;
-  href: string;
+  /** Solo está presente cuando el módulo de destino existe en el Frontend. */
+  href?: string;
 }
 
 export async function listNotifications(signal?: AbortSignal): Promise<HospitalNotification[]> {

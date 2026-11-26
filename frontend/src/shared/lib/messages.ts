@@ -71,6 +71,7 @@ export const MESSAGES = {
   nav: {
     label: 'Navegación principal',
     dashboard: 'Panel principal',
+    notifications: 'Centro de alertas',
     reports: 'Reportes',
     staff: 'Personal',
     patients: 'Pacientes',

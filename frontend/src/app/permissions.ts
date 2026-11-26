@@ -32,6 +32,7 @@ export const SCREEN_RESOURCES = [
   'rooms',
   'events',
   'audit',
+  'notifications',
 ] as const;
 export type ScreenResource = (typeof SCREEN_RESOURCES)[number];
 
@@ -47,6 +48,7 @@ const EMPLOYEE_GRANTS: Grants = {
   ownProfile: ['read'],
   ownDocuments: READ,
   events: READ,
+  notifications: READ,
 };
 
 const GRANTS: Readonly<Record<Exclude<Role, 'ADMIN'>, Grants>> = {

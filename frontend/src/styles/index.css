@@ -4,7 +4,25 @@
 
 /* Fondo blanco y texto oscuro con contraste suficiente (Req. 15.2, 15.14). */
 @layer base {
+  html {
+    @apply bg-slate-50;
+  }
+
   body {
-    @apply bg-white text-slate-900 antialiased;
+    @apply bg-slate-50 text-slate-900 antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  ::selection {
+    @apply bg-active text-heading;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
   }
 }
