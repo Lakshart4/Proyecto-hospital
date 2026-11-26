@@ -4,6 +4,8 @@
 // Orden: política CORS → lector de JSON (UTF-8) → cookies firmadas con SESSION_SECRET → rutas /api →
 // 404 → manejador de errores.
 
+import { existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import cookieParser from 'cookie-parser';
 import express, { type Express, type Router } from 'express';
 import { AttemptLimiter } from './middlewares/attemptLimiter';
@@ -58,6 +60,8 @@ export interface AppOptions {
   now?: () => Date;
   /** Costo de bcrypt (por defecto 10; las pruebas usan 4). */
   bcryptCost?: number;
+  /** Carpeta pública del Frontend compilado (por defecto backend/public). */
+  publicDir?: string;
   /** Rutas adicionales protegidas con los middlewares de seguridad. */
   extraRoutes?: (router: Router, security: Security) => void;
   /** Servicio de correo; por defecto, Bandeja_Local de desarrollo. */
@@ -155,6 +159,22 @@ export function createApp(options: AppOptions): Express {
     }),
   );
 
+  // En producción, el mismo servidor sirve React y la API. La sección /api nunca cae en el SPA.
+  const publicDir = options.publicDir ?? resolve(__dirname, '..', 'public');
+  const indexHtml = join(publicDir, 'index.html');
+  const serveFrontend = process.env.NODE_ENV === 'production' || options.publicDir !== undefined;
+  if (serveFrontend && existsSync(indexHtml)) {
+    app.use(express.static(publicDir));
+    app.use((req, _res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      if (req.path === '/api' || req.path.startsWith('/api/')) return next();
+      _res.sendFile(indexHtml, (error) => {
+        if (error) next(error);
+      });
+    });
+  }
+
+  // Los errores de la API conservan su sobre JSON; no se convierten en rutas SPA ni en index.html.
   app.use(notFound);
   app.use(errorHandler(options.logError ? { log: options.logError } : {}));
   return app;

@@ -65,7 +65,7 @@ export function startServer(config: AppConfig, options: StartServerOptions = {})
   });
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   loadDotEnvFile();
   const { config, warnings } = loadEnvOrExit(process.env);
   for (const warning of warnings) console.warn(`Aviso: ${warning}`);
